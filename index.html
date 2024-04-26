@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resize, Rotate, and Drag SVG with Mouse</title>
+  <style>
+    #svg-container {
+      width: 400px;
+      height: 400px;
+      border: 1px solid black;
+      position: relative;
+    }
+
+    #draggable-svg {
+      cursor: move;
+    }
+
+    #resize-handle {
+      cursor: nwse-resize;
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: black;
+      bottom: 0;
+      right: 0;
+    }
+
+    #rotate-handle {
+      cursor: pointer;
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background-color: red;
+      top: 0;
+      right: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="svg-container">
+    <svg id="draggable-svg" width="400" height="400">
+      <!-- Your SVG content here -->
+      <rect id="draggable-rect" x="50" y="50" width="100" height="100" fill="blue" />
+    </svg>
+    <div id="resize-handle"></div>
+    <div id="rotate-handle"></div>
+  </div>
+
+  <script>
+    const draggableRect = document.getElementById('draggable-rect');
+    const resizeHandle = document.getElementById('resize-handle');
+    const rotateHandle = document.getElementById('rotate-handle');
+    const svgContainer = document.getElementById('svg-container');
+
+    let isDragging = false;
+    let isResizing = false;
+    let isRotating = false;
+    let startX, startY;
+    let startWidth, startHeight;
+    let startMouseX, startMouseY;
+    let startRotation;
+
+    draggableRect.addEventListener('mousedown', startInteraction);
+    resizeHandle.addEventListener('mousedown', startInteraction);
+    rotateHandle.addEventListener('mousedown', startRotate);
+
+    function startInteraction(event) {
+      event.preventDefault();
+      if (event.target === draggableRect) {
+        isDragging = true;
+      } else if (event.target === resizeHandle) {
+        isResizing = true;
+      }
+      startMouseX = event.clientX;
+      startMouseY = event.clientY;
+      const rectBox = draggableRect.getBoundingClientRect();
+      startX = rectBox.left;
+      startY = rectBox.top;
+      startWidth = parseFloat(draggableRect.getAttribute('width'));
+      startHeight = parseFloat(draggableRect.getAttribute('height'));
+
+      document.addEventListener('mousemove', handleInteraction);
+      document.addEventListener('mouseup', stopInteraction);
+    }
+
+    function handleInteraction(event) {
+      if (isDragging) {
+        const dx = event.clientX - startMouseX;
+        const dy = event.clientY - startMouseY;
+        const newX = startX + dx;
+        const newY = startY + dy;
+        draggableRect.setAttribute('x', newX);
+        draggableRect.setAttribute('y', newY);
+      } else if (isResizing) {
+        const dx = event.clientX - startMouseX;
+        const dy = event.clientY - startMouseY;
+        const newWidth = startWidth + dx;
+        const newHeight = startHeight + dy;
+        draggableRect.setAttribute('width', newWidth);
+        draggableRect.setAttribute('height', newHeight);
+      }
+    }
+
+    function startRotate(event) {
+      event.preventDefault();
+      isRotating = true;
+      const rectBox = draggableRect.getBoundingClientRect();
+      const centerX = rectBox.left + rectBox.width / 2;
+      const centerY = rectBox.top + rectBox.height / 2;
+      startMouseX = event.clientX;
+      startMouseY = event.clientY;
+      startRotation = Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180 / Math.PI;
+
+      document.addEventListener('mousemove', rotate);
+      document.addEventListener('mouseup', stopRotate);
+    }
+
+    function rotate(event) {
+      event.preventDefault();
+      const rectBox = draggableRect.getBoundingClientRect();
+      const centerX = rectBox.left + rectBox.width / 2;
+      const centerY = rectBox.top + rectBox.height / 2;
+      const angle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180 / Math.PI;
+      const rotation = angle - startRotation;
+      draggableRect.setAttribute('transform', `rotate(${rotation} ${centerX} ${centerY})`);
+    }
+
+    function stopInteraction() {
+      isDragging = false;
+      isResizing = false;
+      document.removeEventListener('mousemove', handleInteraction);
+      document.removeEventListener('mouseup', stopInteraction);
+    }
+
+    function stopRotate() {
+      isRotating = false;
+      document.removeEventListener('mousemove', rotate);
+      document.removeEventListener('mouseup', stopRotate);
+    }
+  </script>
+</body>
+</html>
