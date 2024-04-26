@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Multiple Dragging</title>
+    <style>
+      svg {
+        border: 1px solid black;
+      }
+      .draggable {
+        cursor: move;
+      }
+    </style>
+  </head>
+  <body>
+    <svg id="svg" width="400" height="400">
+      <g id="group1" class="draggable" transform="translate(100, 100)">
+        <rect x="0" y="0" width="100" height="80" fill="blue" />
+      </g>
+      <g id="group2" class="draggable" transform="translate(200, 200)">
+        <circle cx="0" cy="0" r="40" fill="red" />
+      </g>
+      <g id="group3" class="draggable" transform="translate(100, 200)">
+        <circle cx="0" cy="0" r="40" fill="red" />
+      </g>
+    </svg>
+
+    <script>
+      // Get SVG and group elements
+      const svg = document.getElementById("svg");
+      const groups = document.querySelectorAll(".draggable");
+
+      // Variables to track mouse position and action
+      let isDragging = false;
+      let activeGroup = null;
+      let mouseX, mouseY;
+      let dragStartX, dragStartY;
+      let initialX, initialY;
+
+      // Event listeners for mouse down, move, and up
+      groups.forEach((group) => {
+        group.addEventListener("mousedown", startDrag, startResize);
+      });
+      svg.addEventListener("mousemove", drag, resize);
+      svg.addEventListener("mouseup", endDrag, endResize);
+      // Functions for resizing
+      function startResize(e) {
+        isResizing = true;
+        activeGroup = e.currentTarget;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        resizeStartX = e.clientX;
+        resizeStartY = e.clientY;
+        initialWidth = parseFloat(activeGroup.getBBox().width);
+        initialHeight = parseFloat(activeGroup.getBBox().height);
+      }
+
+      function resize(e) {
+        if (!isResizing) return;
+
+        const deltaX = e.clientX - resizeStartX;
+        const deltaY = e.clientY - resizeStartY;
+
+        const newWidth = Math.max(0, initialWidth + deltaX);
+        const newHeight = Math.max(0, initialHeight + deltaY);
+
+        activeGroup.setAttribute(
+          "transform",
+          `translate(${parseFloat(
+            activeGroup.getAttribute("transform").split(",")[0].slice(10)
+          )}, ${parseFloat(
+            activeGroup.getAttribute("transform").split(",")[1]
+          )}) scale(${newWidth / initialWidth}, ${newHeight / initialHeight})`
+        );
+      }
+
+      function endResize() {
+        isResizing = false;
+        activeGroup = null;
+      }
+      // Functions for dragging
+      function startDrag(e) {
+        isDragging = true;
+        activeGroup = e.currentTarget;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        initialX = parseFloat(
+          activeGroup.getAttribute("transform").split(",")[0].slice(10)
+        );
+        initialY = parseFloat(
+          activeGroup.getAttribute("transform").split(",")[1]
+        );
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+      }
+
+      function drag(e) {
+        if (!isDragging) return;
+
+        const deltaX = e.clientX - mouseX;
+        const deltaY = e.clientY - mouseY;
+
+        const newX = initialX + deltaX;
+        const newY = initialY + deltaY;
+
+        activeGroup.setAttribute("transform", `translate(${newX}, ${newY})`);
+      }
+
+      function endDrag() {
+        isDragging = false;
+        activeGroup = null;
+      }
+    </script>
+  </body>
+</html>
