@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elliptical Curving of Circles with Dynamic Curve (D3.js)</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
+<body>
+    <div>
+        <!-- Input field for curve amount -->
+        <label for="curveAmountInput">Curve Amount (Semi-minor axis b):</label>
+        <input type="number" id="curveAmountInput" min="0" max="300" value="100"><br>
+    </div>
+    <svg width="800" height="600" id="svgContainer"></svg>
+
+    <script>
+        const svgContainer = d3.select("#svgContainer");
+        const curveAmountInput = document.getElementById("curveAmountInput");
+        let curveAmount = +curveAmountInput.value;
+
+        const numCircles = 10;
+        const circleRadius = 20;
+        const spacing = 10;
+
+        const cx = 400;  // Center of the ellipse
+        const cy = 300;  // Center of the ellipse
+        const a = 300;   // Semi-major axis of the ellipse
+
+        // Create two groups
+        const group1 = svgContainer.append("g").attr("id", "group1");
+        const group2 = svgContainer.append("g").attr("id", "group2");
+
+        // Function to calculate elliptical positions
+        function calculateEllipticalPositions(a, b) {
+            const positions = [];
+            for (let i = 0; i < numCircles; i++) {
+                const angle = (i / (numCircles - 1)) * Math.PI; // Evenly distribute points along the ellipse
+                const x = cx + a * Math.cos(angle);
+                const y = cy + b * Math.sin(angle);
+                positions.push({ x, y });
+            }
+            return positions;
+        }
+
+        // Create circles in each group
+        function createCircles(group, positions) {
+            group.selectAll("circle")
+                .data(positions)
+                .enter()
+                .append("circle")
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y)
+                .attr("r", circleRadius)
+                .attr("fill", "steelblue")
+                .attr("stroke", "black")
+                .attr("stroke-width", 1);
+        }
+
+        // Update positions of circles based on curve amount
+        function updateCirclesCurve(curveAmount, group) {
+            const b = curveAmount; // Semi-minor axis of the ellipse
+            const positions = calculateEllipticalPositions(a, b);
+
+            group.selectAll("circle")
+                .data(positions)
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y);
+        }
+
+        // Function to update curve settings based on input value
+        function updateCurveSettings() {
+            curveAmount = +curveAmountInput.value; // Get the current value from input
+            updateCirclesCurve(curveAmount, group1); // Update positions of circles in group1 based on curve amount
+            updateCirclesCurve(curveAmount, group2); // Update positions of circles in group2 based on curve amount
+        }
+
+        // Add event listener to input field for curve amount to update curve settings when value changes
+        curveAmountInput.addEventListener("input", updateCurveSettings);
+
+        // Initialize positions of circles and create them
+        const initialPositions = calculateEllipticalPositions(a, curveAmount);
+        createCircles(group1, initialPositions);
+        createCircles(group2, initialPositions);
+    </script>
+</body>
+</html>
