@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Curving Circles with Dynamic Curve (D3.js)</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+  </head>
+  <body>
+    <div>
+      <!-- Input field for curve amount -->
+      <label for="curveAmountInput">Curve Amount:</label>
+      <input
+        type="number"
+        id="curveAmountInput"
+        min="-200"
+        max="200"
+        value="0"
+      /><br />
+    </div>
+    <svg width="800" height="600" id="svgContainer"></svg>
+
+    <script>
+      const svgContainer = d3.select("#svgContainer");
+      const curveAmountInput = document.getElementById("curveAmountInput");
+      let curveAmount = +curveAmountInput.value;
+
+      // Define initial positions of circles (straight line)
+      const numCircles = 10;
+      const circleRadius = 20;
+      const spacing = 10;
+      let initialPositions = [];
+
+      // Function to generate initial positions of circles
+      function generateInitialPositions() {
+        initialPositions = [];
+        for (let i = 0; i < numCircles; i++) {
+          initialPositions.push({
+            x: i * (circleRadius * 2 + spacing) + circleRadius,
+            y: 100,
+          });
+        }
+      }
+
+      // Function to create circles
+      function createCircles(positions) {
+        svgContainer
+          .selectAll("circle")
+          .data(positions)
+          .enter()
+          .append("circle")
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y)
+          .attr("r", circleRadius)
+          .attr("fill", "steelblue")
+          .attr("stroke", "black")
+          .attr("stroke-width", 1);
+      }
+      // Update positions of circles based on curve
+      function updateCirclesCurve(curveAmount) {
+        const numCircles = 10;
+        const circleRadius = 20;
+        const spacing = 10;
+
+        // Calculate the x positions of circles along the curve
+        const curveY = 100 + curveAmount;
+        const curveWidth = 800;
+        const curveCenterX = curveWidth / 2;
+        const circleInterval = curveWidth / numCircles;
+
+        const curvedPositions = [];
+        for (let i = 0; i < numCircles; i++) {
+          const x = i * circleInterval;
+          const y = calculateCurveY(x, curveCenterX, curveY);
+          curvedPositions.push({ x, y });
+        }
+
+        svgContainer
+          .selectAll("circle")
+          .data(curvedPositions)
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y);
+      }
+
+      // Helper function to calculate y position along the curve given x position
+      function calculateCurveY(x, curveCenterX, curveY) {
+        // You can adjust the curve function as needed
+        return curveY * Math.sin(Math.PI * (x / curveCenterX));
+      }
+
+      // Function to update curve settings based on input value
+      function updateCurveSettings() {
+        curveAmount = +curveAmountInput.value; // Get the current value from input
+        updateCirclesCurve(curveAmount); // Update positions of circles based on curve amount
+      }
+
+      // Add event listener to input field for curve amount to update curve settings when value changes
+      curveAmountInput.addEventListener("input", updateCurveSettings);
+
+      // Initialize positions of circles and create them
+      generateInitialPositions();
+      createCircles(initialPositions);
+    </script>
+  </body>
+</html>
