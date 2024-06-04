@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curved Rows of Seats with Dragging (D3.js)</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        #curveAmountLabel, #spacingLabel, #rotationLabel {
+            display: block;
+            margin-bottom: 10px;
+        }
+        #svgContainer {
+            border: 1px solid black;
+        }
+        .row {
+            cursor: move; /* Change cursor to indicate draggable element */
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <label id="curveAmountLabel" for="curveAmountInput">Curve Amount:</label>
+        <input type="number" id="curveAmountInput" min="0" max="100" value="20"><br>
+        <label id="spacingLabel" for="spacingInput">Spacing Factor:</label>
+        <input type="number" id="spacingInput" min="1" max="5" step="0.1" value="1"><br>
+        <label id="rotationLabel" for="rotationInput">Rotation Angle (degrees):</label>
+        <input type="number" id="rotationInput" min="0" max="360" value="0"><br>
+    </div>
+    <svg width="800" height="600" id="svgContainer"></svg>
+
+    <script>
+        const svgContainer = d3.select("#svgContainer");
+        const curveAmountInput = document.getElementById("curveAmountInput");
+        const spacingInput = document.getElementById("spacingInput");
+        const rotationInput = document.getElementById("rotationInput");
+        let curveAmount = +curveAmountInput.value;
+        let spacingFactor = +spacingInput.value;
+        let rotationAngle = +rotationInput.value;
+
+        const numSeatsPerRow = 10;  // Set the number of seats per row
+        const numRows = 5;          // Set the number of rows
+        const seatRadius = 10;      // Radius of each seat
+        const rowSpacing = 40;      // Vertical spacing between rows
+        const initialX = 100;       // Initial x position for the first seat
+        const seatSpacingBase = 40; // Base horizontal spacing between seats
+
+        // Function to calculate curved positions for a single row
+        function calculateCurvedPositions(rowIndex, curveAmount, spacingFactor) {
+            const positions = [];
+            const seatSpacing = seatSpacingBase * spacingFactor;
+            const cy = 100 + rowIndex * rowSpacing; // Base y position of the row
+
+            for (let i = 0; i < numSeatsPerRow; i++) {
+                const x = initialX + i * seatSpacing; // Calculate x position with spacing factor
+                const y = cy + Math.sin((i / (numSeatsPerRow - 1)) * Math.PI) * curveAmount; // Calculate y position with curve
+                positions.push({ x, y });
+            }
+            return positions;
+        }
+
+        // Create rows and seats in the svg
+        function createRowsAndSeats() {
+            for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
+                const rowGroup = svgContainer.append("g")
+                    .attr("class", "row")
+                    .attr("id", "row-" + rowIndex)
+                    .attr("transform", `translate(0, 0)`)
+                    .call(drag); // Enable dragging for each row
+
+                const rowPositions = calculateCurvedPositions(rowIndex, curveAmount, spacingFactor);
+
+                rowGroup.selectAll("circle")
+                    .data(rowPositions)
+                    .enter()
+                    .append("circle")
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y)
+                    .attr("r", seatRadius)
+                    .attr("fill", "steelblue")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 1);
+            }
+        }
+
+        // Update positions of seats based on curve amount, spacing factor, and rotation angle
+        function updateSeatsCurve(curveAmount, spacingFactor, rotationAngle) {
+            for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
+                const rowPositions = calculateCurvedPositions(rowIndex, curveAmount, spacingFactor);
+                const rowGroup = svgContainer.select("#row-" + rowIndex);
+
+                const circles = rowGroup.selectAll("circle").data(rowPositions);
+
+                // Enter: create new circles as needed
+                circles.enter()
+                    .append("circle")
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y)
+                    .attr("r", seatRadius)
+                    .attr("fill", "steelblue")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 1);
+
+                // Update: update existing circles' positions
+                circles.attr("cx", d => d.x)
+                       .attr("cy", d => d.y);
+
+                // Exit: remove any extra circles
+                circles.exit().remove();
+            }
+        }
+
+        // Drag behavior function
+        const drag = d3.drag()
+            .on("start", function () {
+                d3.select(this).raise().classed("active", true);
+            })
+            .on("drag", function (event, d) {
+                const transform = d3.select(this).attr("transform");
+                const translate = transform.match(/translate\(([^)]+)\)/);
+                const translateValues = translate ? translate[1].split(",").map(Number) : [0, 0];
+                const newX = event.x + translateValues[0];
+                const newY = event.y + translateValues[1];
+                d3.select(this).attr("transform", `translate(${newX}, ${newY})`);
+            })
+            .on("end", function () {
+                d3.select(this).classed("active", false);
+            });
+
+        // Function to update curve settings, spacing, and rotation based on input values
+        function updateCurveSpacingAndRotation() {
+            curveAmount = +curveAmountInput.value; // Get the current curve amount from input
+            spacingFactor = +spacingInput.value;   // Get the current spacing factor from input
+            rotationAngle = +rotationInput.value;  // Get the current rotation angle from input
+            updateSeatsCurve(curveAmount, spacingFactor, rotationAngle); // Update positions of seats based on curve amount, spacing factor, and rotation angle
+        }
+
+        // Add event listeners to input fields for curve amount, spacing factor, and rotation angle
+        curveAmountInput.addEventListener("input", updateCurveSpacingAndRotation);
+        spacingInput.addEventListener("input", updateCurveSpacingAndRotation);
+        rotationInput.addEventListener("input", updateCurveSpacingAndRotation);
+
+        // Initialize positions of seats and create them
+        createRowsAndSeats(); // Call once to initialize the seats
+        updateCurveSpacingAndRotation(); // Call once to set the initial positions
+    </script>
+</body>
+</html>
