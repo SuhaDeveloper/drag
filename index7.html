@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blocks and Seats</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    .selected {
+      stroke: red;
+      stroke-width: 3px;
+    }
+  </style>
+</head>
+<body>
+  <svg id="blocks-container" width="800" height="600"></svg>
+  <input type="number" id="translation-x" placeholder="Enter translation X">
+  <input type="number" id="translation-y" placeholder="Enter translation Y">
+  <input type="number" id="rotation-input" placeholder="Enter rotation angle (degrees)">
+  <input type="number" id="curve-parameter" placeholder="Enter curve parameter (0-100)">
+  <button id="apply-transform">Apply Transform</button>
+
+  <script>
+    // Sample data
+    const blocksData = [
+      { blockName: "Block A", rows: 5, columns: 6 },
+      { blockName: "Block B", rows: 4, columns: 8 },
+      { blockName: "Block C", rows: 6, columns: 5 }
+    ];
+
+    // Create SVG container
+    const svg = d3.select("#blocks-container");
+
+    // Create blocks and seats using D3
+    const blockWidth = 100; // Width of each block
+    const blockHeight = 100; // Height of each block
+    const seatRadius = 5; // Radius of each seat
+
+    const blocks = svg.selectAll(".block")
+      .data(blocksData)
+      .enter()
+      .append("g")
+      .classed("block", true)
+      .attr("transform", (d, i) => `translate(${i * 200 + 50}, 150)`); // Adjust x-coordinate for each block
+
+    blocks.append("rect")
+      .attr("width", blockWidth)
+      .attr("height", blockHeight)
+      .attr("fill", "lightgray")
+      .attr("stroke", "black");
+
+    blocks.append("text")
+      .attr("x", blockWidth / 2)
+      .attr("y", -5)
+      .attr("text-anchor", "middle")
+      .text(d => d.blockName);
+
+    blocks.each(function(d) {
+      const blockGroup = d3.select(this);
+      for (let i = 0; i < d.rows; i++) {
+        for (let j = 0; j < d.columns; j++) {
+          blockGroup.append("circle")
+            .attr("cx", j * 10 + 20) // Adjust x-coordinate for each seat
+            .attr("cy", i * 10 + 20) // Adjust y-coordinate for each seat
+            .attr("r", seatRadius)
+            .style("fill", "gray")
+            .style("stroke", "black");
+        }
+      }
+    });
+
+    // Function to reposition seats along a Bezier curve within a block
+    function repositionSeats(blockGroup, curveParam) {
+      const seats = blockGroup.selectAll("circle");
+      const blockData = blockGroup.datum();
+      const totalSeats = blockData.rows * blockData.columns;
+
+      // Define the start, control, and end points of the Bezier curve
+      const startX = 20;
+      const endX = blockWidth - 20;
+      const startY = 20;
+      const endY = blockHeight - 20;
+      const controlX1 = startX + (endX - startX) / 2;
+      const controlY1 = startY - (curveParam / 100) * (blockHeight / 2);
+      const controlX2 = startX + (endX - startX) / 2;
+      const controlY2 = endY - (curveParam / 100) * (blockHeight / 2);
+
+      // Function to get the position on a cubic Bezier curve
+      function getBezierPoint(t, p0, p1, p2, p3) {
+        const x = Math.pow(1 - t, 3) * p0[0] +
+                  3 * Math.pow(1 - t, 2) * t * p1[0] +
+                  3 * (1 - t) * Math.pow(t, 2) * p2[0] +
+                  Math.pow(t, 3) * p3[0];
+        const y = Math.pow(1 - t, 3) * p0[1] +
+                  3 * Math.pow(1 - t, 2) * t * p1[1] +
+                  3 * (1 - t) * Math.pow(t, 2) * p2[1] +
+                  Math.pow(t, 3) * p3[1];
+        return [x, y];
+      }
+
+      const pathData = [];
+      for (let i = 0; i < totalSeats; i++) {
+        const t = i / (totalSeats - 1);
+        const [x, y] = getBezierPoint(t, [startX, startY], [controlX1, controlY1], [controlX2, controlY2], [endX, endY]);
+        pathData.push([x, y]);
+      }
+
+      seats.data(pathData)
+        .transition()
+        .duration(500)
+        .attr("cx", d => d[0])
+        .attr("cy", d => d[1]);
+    }
+
+    // Apply transform on button click
+    d3.select("#apply-transform").on("click", function() {
+      const translationX = +document.getElementById("translation-x").value; // Get translation X from input
+      const translationY = +document.getElementById("translation-y").value; // Get translation Y from input
+      const rotationAngle = +document.getElementById("rotation-input").value; // Get rotation angle from input
+      const curveParameter = +document.getElementById("curve-parameter").value; // Get curve parameter from input (0-100)
+      const selectedBlock = d3.select(".block.selected"); // Get selected block
+
+      if (!isNaN(translationX) && !isNaN(translationY) && !isNaN(rotationAngle) && !isNaN(curveParameter) && selectedBlock.size() > 0) {
+        // Apply new transformation with both translate and rotate
+        selectedBlock.attr("transform", `translate(${translationX},${translationY}) rotate(${rotationAngle})`);
+
+        // Reposition seats along the curve within the selected block
+        repositionSeats(selectedBlock, curveParameter);
+      }
+    });
+
+    // Add click event listener to select blocks
+    blocks.on("click", function() {
+      d3.selectAll(".block").classed("selected", false); // Deselect all blocks
+      d3.select(this).classed("selected", true); // Select the clicked block
+    });
+
+    // Add drag behavior to blocks
+    const drag = d3.drag()
+      .on("start", function(event) {
+        d3.select(this).raise().classed("active", true);
+      })
+      .on("drag", function(event) {
+        const selectedBlock = d3.select(this);
+        const transform = selectedBlock.attr("transform");
+        const translateMatch = transform.match(/translate\(([^)]+)\)/);
+        const rotateMatch = transform.match(/rotate\(([^)]+)\)/);
+
+        const [translateX, translateY] = translateMatch ? translateMatch[1].split(',').map(Number) : [0, 0];
+        const rotate = rotateMatch ? rotateMatch[1] : 0;
+
+        const newTranslateX = translateX + event.dx;
+        const newTranslateY = translateY + event.dy;
+
+        selectedBlock.attr("transform", `translate(${newTranslateX},${newTranslateY}) rotate(${rotate})`);
+      })
+      .on("end", function(event) {
+        d3.select(this).classed("active", false);
+      });
+
+    blocks.call(drag);
+  </script>
+</body>
+</html>
