@@ -1,4 +1,4 @@
-<div>
+div>
   <label id="curveAmountLabel" for="curveAmountInput">Curve Amount:</label>
   <input type="number" id="curveAmountInput" [(ngModel)]="curveAmount" (input)="updateCurveSpacingRotationScale()" min="0" max="100" value="20"><br>
   
@@ -172,4 +172,17 @@ export class SeatVisualizationComponent implements OnInit {
 .selected {
   stroke: red;
   stroke-width: 2px;
+}
+
+private calculateCurvedPositions(rowIndex: number, curveAmount: number, spacingFactor: number, numSeatsPerRow: number): SeatPosition[] {
+  const positions: SeatPosition[] = [];
+  const seatSpacing = this.seatSpacingBase * spacingFactor;
+  const baseY = rowIndex * this.rowSpacing; // Adjust the base y-coordinate for each row
+
+  for (let i = 0; i < numSeatsPerRow; i++) {
+    const x = i * seatSpacing;
+    const y = baseY + Math.sin((i / (numSeatsPerRow - 1)) * Math.PI) * curveAmount;
+    positions.push({ x, y });
+  }
+  return positions;
 }
