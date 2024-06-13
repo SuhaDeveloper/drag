@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curved Rows of Seats with Dragging, Scaling, and Rotation (D3.js)</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        #curveAmountLabel, #spacingLabel, #rotationLabel, #scaleLabel {
+            display: block;
+            margin-bottom: 10px;
+        }
+        #svgContainer {
+            border: 1px solid black;
+        }
+        .block {
+            cursor: move; /* Change cursor to indicate draggable element */
+        }
+        .selected {
+            stroke: red;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <label id="curveAmountLabel" for="curveAmountInput">Curve Amount:</label>
+        <input type="number" id="curveAmountInput" min="0" max="100" value="20"><br>
+        <label id="spacingLabel" for="spacingInput">Spacing Factor:</label>
+        <input type="number" id="spacingInput" min="1" max="5" step="0.1" value="1"><br>
+        <label id="rotationLabel" for="rotationInput">Rotation Angle (degrees):</label>
+        <input type="number" id="rotationInput" min="0" max="360" value="0"><br>
+        <label id="scaleLabel" for="scaleInput">Scale Factor:</label>
+        <input type="number" id="scaleInput" min="0.1" max="2" step="0.1" value="1"><br>
+        <button id="updateScaleButton">Update Scale</button> <!-- Button to update scale -->
+    </div>
+    <svg width="800" height="600" id="svgContainer"></svg>
+
+    <script>
+        const svgContainer = d3.select("#svgContainer");
+        const curveAmountInput = document.getElementById("curveAmountInput");
+        const spacingInput = document.getElementById("spacingInput");
+        const rotationInput = document.getElementById("rotationInput");
+        const scaleInput = document.getElementById("scaleInput");
+        let curveAmount = +curveAmountInput.value;
+        let spacingFactor = +spacingInput.value;
+        let rotationAngle = +rotationInput.value;
+        let scaleValue = +scaleInput.value;
+
+        const blocksData = [
+            { blockName: "Block A", rows: 5, columns: 6, scale: 0.7 },
+            { blockName: "Block B", rows: 4, columns: 8, scale: 0.7 },
+            { blockName: "Block C", rows: 6, columns: 5, scale: 0.7 }
+        ];
+
+        const seatRadius = 10;       // Radius of each seat
+        const rowSpacing = 25;       // Vertical spacing between rows
+        const blockSpacing = 200;    // Spacing between blocks
+        const initialX = 100;        // Initial x position for the first seat
+        const initialY = 100;        // Initial y position for the first seat
+        const seatSpacingBase = 40;  // Base horizontal spacing between seats
+
+        let selectedBlockIndex = null;
+
+        // Function to calculate curved positions for a single row
+        function calculateCurvedPositions(rowIndex, curveAmount, spacingFactor, numSeatsPerRow) {
+            const positions = [];
+            const seatSpacing = seatSpacingBase * spacingFactor;
+            const cy = rowIndex * rowSpacing; // Base y position of the row
+
+            for (let i = 0; i < numSeatsPerRow; i++) {
+                const x = i * seatSpacing; // Calculate x position with spacing factor
+                const y = cy + Math.sin((i / (numSeatsPerRow - 1)) * Math.PI) * curveAmount; // Calculate y position with curve
+                positions.push({ x, y });
+            }
+            return positions;
+        }
+
+        // Create blocks and rows in the svg
+        function createBlocksAndSeats() {
+            blocksData.forEach((block, blockIndex) => {
+                const blockGroup = svgContainer.append("g")
+                    .attr("class", "block")
+                    .attr("id", `block-${blockIndex}`)
+                    .attr("data-index", blockIndex)
+                    .attr("transform", `translate(${initialX + blockIndex * blockSpacing},${initialY}) scale(${block.scale})`)
+                    .on("click", function () {
+                        selectBlock(blockIndex);
+                    })
+                    .call(drag); // Enable dragging for each block
+
+                for (let rowIndex = 0; rowIndex < block.rows; rowIndex++) {
+                    const rowPositions = calculateCurvedPositions(rowIndex, curveAmount, spacingFactor, block.columns);
+
+                    blockGroup.selectAll(`circle.row-${rowIndex}`)
+                        .data(rowPositions)
+                        .enter()
+                        .append("circle")
+                        .attr("cx", d => d.x)
+                        .attr("cy", d => d.y)
+                        .attr("r", seatRadius)
+                        .attr("fill", "steelblue")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", 1)
+                        .attr("class", `row-${rowIndex}`);
+                }
+            });
+        }
+
+        // Select block
+        function selectBlock(blockIndex) {
+            if (selectedBlockIndex !== null) {
+                // Deselect previous block
+                d3.select(`#block-${selectedBlockIndex}`).selectAll("circle").classed("selected", false);
+            }
+            selectedBlockIndex = blockIndex;
+            d3.select(`#block-${selectedBlockIndex}`).selectAll("circle").classed("selected", true);
+        }
+
+        // Update positions of seats based on curve amount, spacing factor, rotation angle, and scale
+        function updateSeatsCurve(curveAmount, spacingFactor, rotationAngle, blockIndex) {
+            if (blockIndex === null) return;
+
+            const block = blocksData[blockIndex];
+            const blockGroup = svgContainer.select(`#block-${blockIndex}`);
+
+            for (let rowIndex = 0; rowIndex < block.rows; rowIndex++) {
+                const rowPositions = calculateCurvedPositions(rowIndex, curveAmount, spacingFactor, block.columns);
+
+                const circles = blockGroup.selectAll(`circle.row-${rowIndex}`).data(rowPositions);
+
+                // Update: update existing circles' positions
+                circles.attr("cx", d => d.x)
+                       .attr("cy", d => d.y);
+            }
+
+            // Update rotation and scale for the selected block only
+            const transform = blockGroup.attr("transform");
+            const translate = transform.match(/translate\(([^)]+)\)/)[1];
+            blockGroup.attr("transform", `translate(${translate}) rotate(${rotationAngle}) scale(${block.scale})`);
+        }
+
+        // Drag behavior function
+        const drag = d3.drag()
+            .on("start", function () {
+                d3.select(this).raise().classed("active", true);
+            })
+            .on("drag", function (event, d) {
+                const transform = d3.select(this).attr("transform");
+                const translate = transform.match(/translate\(([^)]+)\)/);
+                const translateValues = translate ? translate[1].split(",").map(Number) : [0, 0];
+                const newX = event.dx + translateValues[0];
+                const newY = event.dy + translateValues[1];
+                const blockIndex = +d3.select(this).attr("data-index");
+                const scale = blocksData[blockIndex].scale;
+                d3.select(this).attr("transform", `translate(${newX}, ${newY}) rotate(${rotationAngle}) scale(${scale})`);
+            })
+            .on("end", function () {
+                d3.select(this).classed("active", false);
+            });
+
+        // Function to update curve settings, spacing, rotation, and scale based on input values
+        function updateCurveSpacingRotationScale() {
+            curveAmount = +curveAmountInput.value; // Get the current curve amount from input
+            spacingFactor = +spacingInput.value;   // Get the current spacing factor from input
+            rotationAngle = +rotationInput.value;  // Get the current rotation angle from input
+            updateSeatsCurve(curveAmount, spacingFactor, rotationAngle, selectedBlockIndex); // Update positions of seats based on curve amount, spacing factor, rotation angle, and scale
+        }
+
+        // Add event listeners to input fields for curve amount, spacing factor, rotation angle, and scale
+        curveAmountInput.addEventListener("input", updateCurveSpacingRotationScale);
+        spacingInput.addEventListener("input", updateCurveSpacingRotationScale);
+        rotationInput.addEventListener("input", updateCurveSpacingRotationScale);
+
+        // Event listener for updating scale when the button is clicked
+        document.getElementById("updateScaleButton").addEventListener("click", function() {
+            const newScale = +scaleInput.value;
+            // Update the scale property of each block in the blocksData array
+            blocksData.forEach(block => {
+                if (block.scale !== newScale) {
+                    block.scale = newScale;
+                    // Update the visualization for the current block only
+                    updateSeatsCurve(curveAmount, spacingFactor, rotationAngle, selectedBlockIndex);
+                }
+            });
+        });
+
+        // Initialize blocks and seats
+        createBlocksAndSeats();
+        updateCurveSpacingRotationScale(); // Call once to set the initial positions
+    </script>
+</body>
+</html>
