@@ -1,0 +1,175 @@
+<div>
+  <label id="curveAmountLabel" for="curveAmountInput">Curve Amount:</label>
+  <input type="number" id="curveAmountInput" [(ngModel)]="curveAmount" (input)="updateCurveSpacingRotationScale()" min="0" max="100" value="20"><br>
+  
+  <label id="spacingLabel" for="spacingInput">Spacing Factor:</label>
+  <input type="number" id="spacingInput" [(ngModel)]="spacingFactor" (input)="updateCurveSpacingRotationScale()" min="1" max="5" step="0.1" value="1"><br>
+  
+  <label id="rotationLabel" for="rotationInput">Rotation Angle (degrees):</label>
+  <input type="number" id="rotationInput" [(ngModel)]="rotationAngle" (input)="updateCurveSpacingRotationScale()" min="0" max="360" value="0"><br>
+  
+  <label id="scaleLabel" for="scaleInput">Scale Factor:</label>
+  <input type="number" id="scaleInput" [(ngModel)]="scaleValue" min="0.1" max="2" step="0.1" value="1"><br>
+  
+  <button (click)="updateScale()">Update Scale</button>
+</div>
+<svg width="800" height="600" id="svgContainer"></svg>
+
+
+
+
+--ts folder--
+
+
+import { Component, OnInit } from '@angular/core';
+import * as d3 from 'd3';
+
+@Component({
+  selector: 'app-seat-visualization',
+  templateUrl: './seat-visualization.component.html',
+  styleUrls: ['./seat-visualization.component.css']
+})
+export class SeatVisualizationComponent implements OnInit {
+  curveAmount = 20;
+  spacingFactor = 1;
+  rotationAngle = 0;
+  scaleValue = 1;
+  selectedBlockIndex: number | null = null;
+
+  blocksData = [
+    { blockName: 'Block A', rows: 5, columns: 6, scale: 0.7 },
+    { blockName: 'Block B', rows: 4, columns: 8, scale: 0.7 },
+    { blockName: 'Block C', rows: 6, columns: 5, scale: 0.7 }
+  ];
+
+  private svgContainer: any;
+  private seatRadius = 10;
+  private rowSpacing = 25;
+  private blockSpacing = 200;
+  private initialX = 100;
+  private initialY = 100;
+  private seatSpacingBase = 40;
+
+  ngOnInit(): void {
+    this.svgContainer = d3.select('#svgContainer');
+    this.createBlocksAndSeats();
+    this.updateCurveSpacingRotationScale();
+  }
+
+  calculateCurvedPositions(rowIndex: number, curveAmount: number, spacingFactor: number, numSeatsPerRow: number): any[] {
+    const positions = [];
+    const seatSpacing = this.seatSpacingBase * spacingFactor;
+    const cy = rowIndex * this.rowSpacing;
+
+    for (let i = 0; i < numSeatsPerRow; i++) {
+      const x = i * seatSpacing;
+      const y = cy + Math.sin((i / (numSeatsPerRow - 1)) * Math.PI) * curveAmount;
+      positions.push({ x, y });
+    }
+    return positions;
+  }
+
+  createBlocksAndSeats(): void {
+    this.blocksData.forEach((block, blockIndex) => {
+      const blockGroup = this.svgContainer.append('g')
+        .attr('class', 'block')
+        .attr('id', `block-${blockIndex}`)
+        .attr('data-index', blockIndex)
+        .attr('transform', `translate(${this.initialX + blockIndex * this.blockSpacing},${this.initialY}) scale(${block.scale})`)
+        .on('click', () => this.selectBlock(blockIndex))
+        .call(this.drag());
+
+      for (let rowIndex = 0; rowIndex < block.rows; rowIndex++) {
+        const rowPositions = this.calculateCurvedPositions(rowIndex, this.curveAmount, this.spacingFactor, block.columns);
+        blockGroup.selectAll(`circle.row-${rowIndex}`)
+          .data(rowPositions)
+          .enter()
+          .append('circle')
+          .attr('cx', d => d.x)
+          .attr('cy', d => d.y)
+          .attr('r', this.seatRadius)
+          .attr('fill', 'steelblue')
+          .attr('stroke', 'black')
+          .attr('stroke-width', 1)
+          .attr('class', `row-${rowIndex}`);
+      }
+    });
+  }
+
+  selectBlock(blockIndex: number): void {
+    if (this.selectedBlockIndex !== null) {
+      d3.select(`#block-${this.selectedBlockIndex}`).selectAll('circle').classed('selected', false);
+    }
+    this.selectedBlockIndex = blockIndex;
+    d3.select(`#block-${this.selectedBlockIndex}`).selectAll('circle').classed('selected', true);
+  }
+
+  updateSeatsCurve(curveAmount: number, spacingFactor: number, rotationAngle: number, blockIndex: number | null): void {
+    if (blockIndex === null) return;
+
+    const block = this.blocksData[blockIndex];
+    const blockGroup = this.svgContainer.select(`#block-${blockIndex}`);
+
+    for (let rowIndex = 0; rowIndex < block.rows; rowIndex++) {
+      const rowPositions = this.calculateCurvedPositions(rowIndex, curveAmount, spacingFactor, block.columns);
+      const circles = blockGroup.selectAll(`circle.row-${rowIndex}`).data(rowPositions);
+
+      circles.attr('cx', d => d.x)
+             .attr('cy', d => d.y);
+    }
+
+    const transform = blockGroup.attr('transform');
+    const translate = transform.match(/translate\(([^)]+)\)/)[1];
+    blockGroup.attr('transform', `translate(${translate}) rotate(${rotationAngle}) scale(${block.scale})`);
+  }
+
+  drag(): any {
+    return d3.drag()
+      .on('start', function () {
+        d3.select(this).raise().classed('active', true);
+      })
+      .on('drag', function (event) {
+        const transform = d3.select(this).attr('transform');
+        const translate = transform.match(/translate\(([^)]+)\)/);
+        const translateValues = translate ? translate[1].split(',').map(Number) : [0, 0];
+        const newX = event.dx + translateValues[0];
+        const newY = event.dy + translateValues[1];
+        const blockIndex = +d3.select(this).attr('data-index');
+        const scale = d3.select(this).attr('data-scale');
+        d3.select(this).attr('transform', `translate(${newX}, ${newY}) rotate(${scale}) scale(${scale})`);
+      })
+      .on('end', function () {
+        d3.select(this).classed('active', false);
+      });
+  }
+
+  updateCurveSpacingRotationScale(): void {
+    this.updateSeatsCurve(this.curveAmount, this.spacingFactor, this.rotationAngle, this.selectedBlockIndex);
+  }
+
+  updateScale(): void {
+    this.blocksData.forEach(block => {
+      if (block.scale !== this.scaleValue) {
+        block.scale = this.scaleValue;
+        this.updateSeatsCurve(this.curveAmount, this.spacingFactor, this.rotationAngle, this.selectedBlockIndex);
+      }
+    });
+  }
+}
+
+
+--css--
+#curveAmountLabel, #spacingLabel, #rotationLabel, #scaleLabel {
+  display: block;
+  margin-bottom: 10px;
+}
+#svgContainer {
+  border: 1px solid black;
+}
+.block {
+  cursor: move;
+}
+.selected {
+  stroke: red;
+  stroke-width: 2px;
+}
