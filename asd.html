@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-Select Checkboxes</title>
+    <style>
+      .dropdown {
+        position: relative;
+        display: inline-block;
+      }
+      .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #f9f9f9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+      .dropdown-content label {
+        display: block;
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+      .dropdown-content label:hover {
+        background-color: #f1f1f1;
+      }
+      .dropdown-content input[type="checkbox"] {
+        margin-right: 10px;
+      }
+      .show {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dropdownPosition" style="position: relative;min-height: 40px;">
+      <div
+        class="dropdown"
+        id="dropdown1"
+        style="position: absolute; right: 0; top: 0; z-index: 9;"
+      >
+        <div class="dropdown-content">
+          <label><input type="checkbox" value="Option 1" /> Option 1</label>
+          <label><input type="checkbox" value="Option 2" /> Option 2</label>
+          <label><input type="checkbox" value="Option 3" /> Option 3</label>
+          <label><input type="checkbox" value="Option 4" /> Option 4</label>
+        </div>
+        <button
+          onclick="toggleDropdown('dropdown1')"
+        >
+          Select Options 1
+        </button>
+      </div>
+      <input
+        type="text"
+        id="selected-options1"
+        readonly
+        style="position: absolute; width: 100%"
+      />
+    </div>
+
+    <div class="dropdownPosition">
+      <div class="dropdown" id="dropdown2">
+        <button onclick="toggleDropdown('dropdown2')">Select Options 2</button>
+        <div class="dropdown-content">
+          <label><input type="checkbox" value="Choice A" /> Choice A</label>
+          <label><input type="checkbox" value="Choice B" /> Choice B</label>
+          <label><input type="checkbox" value="Choice C" /> Choice C</label>
+          <label><input type="checkbox" value="Choice D" /> Choice D</label>
+        </div>
+      </div>
+      <input type="text" id="selected-options2" readonly />
+    </div>
+
+    <button onclick="printSelectionsAsJson()">Print Selections as JSON</button>
+
+    <script>
+      function toggleDropdown(dropdownId) {
+        document
+          .querySelector("#" + dropdownId + " .dropdown-content")
+          .classList.toggle("show");
+      }
+
+      window.onclick = function (event) {
+        if (
+          !event.target.matches(".dropdown button") &&
+          !event.target.matches(".dropdown-content") &&
+          !event.target.closest(".dropdown-content")
+        ) {
+          var dropdowns = document.getElementsByClassName("dropdown-content");
+          for (var i = 0; i < dropdowns.length; i++) {
+            var openDropdown = dropdowns[i];
+            if (openDropdown.classList.contains("show")) {
+              openDropdown.classList.remove("show");
+            }
+          }
+        }
+      };
+
+      function updateSelections(dropdownId, inputId) {
+        var checkboxes = document.querySelectorAll(
+          "#" + dropdownId + ' .dropdown-content input[type="checkbox"]:checked'
+        );
+        var selections = Array.from(checkboxes).map((cb) => cb.value);
+        document.getElementById(inputId).value = selections.join(", ");
+      }
+
+      function printSelectionsAsJson() {
+        var selections = {};
+        document.querySelectorAll(".dropdown").forEach((dropdown) => {
+          var dropdownId = dropdown.id;
+          var checkboxes = dropdown.querySelectorAll(
+            '.dropdown-content input[type="checkbox"]:checked'
+          );
+          var selectedOptions = Array.from(checkboxes).map((cb) => cb.value);
+          selections[dropdownId] = selectedOptions;
+        });
+        console.log(JSON.stringify(selections, null));
+      }
+
+      // Add event listeners for each checkbox in each dropdown
+      document.querySelectorAll(".dropdown").forEach((dropdown) => {
+        var dropdownId = dropdown.id;
+        var inputId = "selected-" + dropdownId.replace("dropdown", "options");
+        dropdown
+          .querySelectorAll('.dropdown-content input[type="checkbox"]')
+          .forEach((checkbox) => {
+            checkbox.addEventListener("change", function () {
+              updateSelections(dropdownId, inputId);
+            });
+          });
+      });
+    </script>
+  </body>
+</html>
